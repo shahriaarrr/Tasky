@@ -31,8 +31,14 @@ func main() {
 
 	switch {
 	case *add:
-		tasks.Add("task")
-		err := tasks.Store(taskFile)
+		task, err := getInput(os.Stdin, flag.Args()...)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+
+		tasks.Add(task)
+		err = tasks.Store(taskFile)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
