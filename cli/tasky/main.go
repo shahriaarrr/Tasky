@@ -14,6 +14,7 @@ const (
 func main() {
 	add := flag.Bool("add", false, "add new task")
 	complete := flag.Int("complete", 0, "task completed✅")
+	rm := flag.Int("rm", 0, "task removed successfully :)")
 	flag.Parse()
 
 	tasks := &tasky.Todos{}
@@ -34,6 +35,19 @@ func main() {
 
 	case *complete > 0:
 		err := tasks.Complete(*complete)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+
+		err = tasks.Store(taskFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			os.Exit(1)
+		}
+
+	case *rm > 0:
+		err := tasks.Delete(*rm)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(1)
