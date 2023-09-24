@@ -11,19 +11,19 @@ import (
 	"strings"
 )
 
-const (
-	taskFile = ".tasky.jsone"
-)
+const taskFile = ".tasky.jsone"
 
 func main() {
+	// Define command-line flags
 	add := flag.Bool("add", false, "add new task")
-	complete := flag.Int("complete", 0, "task completed✅")
-	rm := flag.Int("rm", 0, "task removed successfully :)")
-	list := flag.Bool("list", false, "all Tasks")
+	complete := flag.Int("complete", 0, "task completed")
+	rm := flag.Int("rm", 0, "task removed successfully")
+	list := flag.Bool("list", false, "list all tasks")
 	flag.Parse()
 
 	tasks := &tasky.Todos{}
 
+	// Load tasks from file
 	if err := tasks.Load(taskFile); err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
@@ -33,42 +33,26 @@ func main() {
 	case *add:
 		task, err := getInput(os.Stdin, flag.Args()...)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
+			handleError(err)
 		}
 
 		tasks.Add(task)
 		err = tasks.Store(taskFile)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 
 	case *complete > 0:
 		err := tasks.Complete(*complete)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 
 		err = tasks.Store(taskFile)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 
 	case *rm > 0:
 		err := tasks.Delete(*rm)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 
 		err = tasks.Store(taskFile)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(1)
-		}
+		handleError(err)
 
 	case *list:
 		tasks.Print()
@@ -92,9 +76,16 @@ func getInput(r io.Reader, args ...string) (string, error) {
 
 	text := scanner.Text()
 
-	if len(scanner.Text()) == 0 {
+	if len(text) == 0 {
 		return "", errors.New("your task is empty :)")
 	}
 
 	return text, nil
+}
+
+func handleError(err error) {
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
 }
