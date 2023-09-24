@@ -25,6 +25,6 @@ func blue(s string) string {
 	return fmt.Sprintf("%s%s%s", ColorBlue, s, ColorDefault)
 }
 
-func gray(s string) string {
-	return fmt.Sprintf("%s%s%s", ColorGray, s, ColorDefault)
-}
+// func gray(s string) string {
+// 	return fmt.Sprintf("%s%s%s", ColorGray, s, ColorDefault)
+// }
