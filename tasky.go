@@ -52,7 +52,11 @@ func (t *Todos) Delete(index int) error {
 }
 
 func (t *Todos) Load(filename string) error {
-	file, err := os.ReadFile(filename)
+	// file, err := os.ReadFile(filename)
+	homeDir, err := os.UserHomeDir()
+	homeDir = homeDir + "/" + filename
+	file, err := os.ReadFile(homeDir)
+
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -78,7 +82,10 @@ func (t *Todos) Store(filename string) error {
 		return err
 	}
 
-	return os.WriteFile(filename, data, 0644)
+	homeDir, err := os.UserHomeDir()
+	homeDir = homeDir + "/" + filename
+
+	return os.WriteFile(homeDir, data, 0644)
 }
 
 func (t *Todos) Print() {

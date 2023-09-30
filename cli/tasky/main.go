@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const taskFile = ".tasky.jsone"
+const taskFile = ".tasky.json"
 
 func main() {
 	// Define command-line flags
