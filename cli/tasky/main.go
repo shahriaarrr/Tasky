@@ -8,6 +8,7 @@ import (
 	"github/tasky"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ func main() {
 	complete := flag.Int("complete", 0, "task completed")
 	rm := flag.Int("rm", 0, "task removed successfully")
 	list := flag.Bool("list", false, "list all tasks")
+	edit := flag.Bool("edit", false, "edit your task")
 	flag.Parse()
 
 	tasks := &tasky.Todos{}
@@ -42,6 +44,27 @@ func main() {
 
 	case *complete > 0:
 		err := tasks.Complete(*complete)
+		handleError(err)
+
+		err = tasks.Store(taskFile)
+		handleError(err)
+
+	case *edit:
+		if len(flag.Args()) < 2 {
+			fmt.Fprintln(os.Stderr, "Usage: -edit <index> <new_task>")
+			os.Exit(1)
+		}
+
+		index := flag.Arg(0)
+		newTask := strings.Join(flag.Args()[1:], " ")
+
+		indexInt, err := strconv.Atoi(index)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Invalid index:", err)
+			os.Exit(1)
+		}
+
+		err = tasks.Edit(indexInt, newTask)
 		handleError(err)
 
 		err = tasks.Store(taskFile)

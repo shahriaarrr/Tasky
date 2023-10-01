@@ -41,6 +41,16 @@ func (t *Todos) Complete(index int) error {
 	return nil
 }
 
+func (t *Todos) Edit(index int, newTask string) error {
+	if index <= 0 || index > len(*t) {
+		return errors.New("invalid index")
+	}
+
+	(*t)[index-1].Task = newTask
+
+	return nil
+}
+
 func (t *Todos) Delete(index int) error {
 	if index <= 0 || index > len(*t) {
 		return errors.New("invalid index")
