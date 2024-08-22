@@ -23,6 +23,12 @@ func main() {
 	edit := flag.Bool("edit", false, "edit your task")
 	flag.Parse()
 
+	// Display the welcome menu if no commands are provided
+	if len(os.Args) == 1 {
+		displayMenu()
+		return
+	}
+
 	tasks := &tasky.Todos{}
 
 	// Load tasks from file
@@ -84,6 +90,34 @@ func main() {
 		fmt.Fprintln(os.Stdout, "invalid command")
 		os.Exit(0)
 	}
+}
+
+// displayMenu displays the welcome message and available commands
+func displayMenu() {
+	menu := `
+████████╗ █████╗ ███████╗██╗  ██╗██╗   ██╗
+╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝╚██╗ ██╔╝
+   ██║   ███████║███████╗█████╔╝  ╚████╔╝ 
+   ██║   ██╔══██║╚════██║██╔═██╗   ╚██╔╝  
+   ██║   ██║  ██║███████║██║  ██╗   ██║   
+   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   
+                                          
+	Welcome to Tasky👋
+	Your personal command-line task manager🧑‍💼
+
+	Tasky helps you efficiently manage your to-do list directly from the terminal.
+	Whether you're tracking daily tasks, marking items as complete, or editing existing tasks,
+	Tasky provides a simple yet powerful interface to keep your tasks organized.
+
+	You can see Available commands with -h command.
+
+	Stay on top of your tasks with Tasky!
+
+	for more details: https://github.com/shahriaarrr/Tasky
+
+	© Developed with ❤️  and ☕ By Shahriar Ghasempour.
+`
+	fmt.Println(menu)
 }
 
 func getInput(r io.Reader, args ...string) (string, error) {
