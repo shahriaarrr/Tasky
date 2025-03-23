@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -31,33 +32,48 @@ func main() {
 }
 
 func run() error {
-	// Define command-line flags
-	add := flag.Bool("a", false, "add new task")
-	addLong := flag.Bool("add", false, "add new task (long flag)")
-	complete := flag.Int("c", 0, "task completed")
-	completeLong := flag.Int("complete", 0, "task completed (long flag)")
-	remove := flag.Int("r", 0, "task removed successfully")
-	removeLong := flag.Int("remove", 0, "task removed successfully (long flag)")
-	list := flag.Bool("l", false, "list all tasks")
-	listLong := flag.Bool("list", false, "list all tasks (long flag)")
-	edit := flag.Bool("e", false, "edit your task")
-	editLong := flag.Bool("edit", false, "edit your task (long flag)")
-	flag.Parse()
+	// Create a new FlagSet with ContinueOnError to allow manual error handling.
+	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	// Suppress automatic usage output.
+	fs.SetOutput(new(bytes.Buffer))
 
-	// Display the welcome menu if no commands are provided
-	if len(os.Args) == 1 {
+	// Define command-line flags using the custom flag set.
+	add := fs.Bool("a", false, "add new task")
+	addLong := fs.Bool("add", false, "add new task (long flag)")
+	complete := fs.Int("c", 0, "task completed")
+	completeLong := fs.Int("complete", 0, "task completed (long flag)")
+	remove := fs.Int("r", 0, "task removed successfully")
+	removeLong := fs.Int("remove", 0, "task removed successfully (long flag)")
+	list := fs.Bool("l", false, "list all tasks")
+	listLong := fs.Bool("list", false, "list all tasks (long flag)")
+	edit := fs.Bool("e", false, "edit your task")
+	editLong := fs.Bool("edit", false, "edit your task (long flag)")
+
+	// Parse command-line arguments using the custom flag set.
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		// Print the custom error message to stderr.
+		fmt.Fprintln(os.Stderr, errInvalidUsage.Error())
+		return errInvalidUsage
+	}
+
+	// Make the parsed flag set available for flag.Args() calls in other functions.
+	flag.CommandLine = fs
+
+	// Display the welcome menu if no flags and positional arguments are provided.
+	if fs.NFlag() == 0 && fs.NArg() == 0 {
 		displayMenu()
 		return nil
 	}
 
 	tasks := &tasky.Todos{}
 
-	// Load tasks from file
+	// Load tasks from the file.
 	if err := tasks.Load(taskFile); err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
 	}
 
-	// Use the long flag if it's provided, otherwise use the short flag
+	// Choose between short and long flags.
 	addTask := *addLong || *add
 	completeTask := *completeLong
 	if completeTask == 0 {
@@ -97,6 +113,10 @@ func handleAddTask(tasks *tasky.Todos) error {
 	if err := tasks.Store(taskFile); err != nil {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
+
+	// Print confirmation message to stdout for testing
+	fmt.Printf("Task added: %s\n", task)
+
 	return nil
 }
 
