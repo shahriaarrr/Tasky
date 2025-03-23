@@ -1,0 +1,28 @@
+name: Run Tasky's Unit Tests
+
+on:
+  push:
+    branches:
+      - 'SH'
+  pull_request:
+    branches:
+      - 'SH'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Run tests in cli/tasky
+        run: |
+          cd cli/tasky
+          go test -v ./...
