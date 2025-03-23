@@ -5,21 +5,31 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/alexeyco/simpletable"
 )
 
+var (
+	errInvalidIndex = errors.New("invalid index")
+	errEmptyTask = errors.New("task cannot be empty")
+)
+
 type item struct {
-	Task        string
-	Done        bool
-	CreatedAt   time.Time
-	CompletedAt time.Time
+	Task        string    `json:"task"`
+	Done        bool      `json:"done"`
+	CreatedAt   time.Time `json:"created_at"`
+	CompletedAt time.Time `json:"completed_at,omitempty"`
 }
 
 type Todos []item
 
-func (t *Todos) Add(task string) {
+func (t *Todos) Add(task string) error {
+	if len(task) == 0 {
+		return errEmptyTask
+	}
+
 	todo := item{
 		Task:        task,
 		Done:        false,
@@ -28,11 +38,12 @@ func (t *Todos) Add(task string) {
 	}
 
 	*t = append(*t, todo)
+	return nil
 }
 
 func (t *Todos) Complete(index int) error {
-	if index <= 0 || index > len(*t) {
-		return errors.New("invalid index")
+	if !t.isValidIndex(index) {
+		return errInvalidIndex
 	}
 
 	(*t)[index-1].CompletedAt = time.Now()
@@ -42,45 +53,48 @@ func (t *Todos) Complete(index int) error {
 }
 
 func (t *Todos) Edit(index int, newTask string) error {
-	if index <= 0 || index > len(*t) {
-		return errors.New("invalid index")
+	if !t.isValidIndex(index) {
+		return errInvalidIndex
+	}
+
+	if len(newTask) == 0 {
+		return errEmptyTask
 	}
 
 	(*t)[index-1].Task = newTask
-
 	return nil
 }
 
 func (t *Todos) Delete(index int) error {
-	if index <= 0 || index > len(*t) {
-		return errors.New("invalid index")
+	if !t.isValidIndex(index) {
+		return errInvalidIndex
 	}
 
 	*t = append((*t)[:index-1], (*t)[index:]...)
-
 	return nil
 }
 
 func (t *Todos) Load(filename string) error {
-	// file, err := os.ReadFile(filename)
 	homeDir, err := os.UserHomeDir()
-	homeDir = homeDir + "/" + filename
-	file, err := os.ReadFile(homeDir)
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
 
+	filePath := filepath.Join(homeDir, filename)
+	file, err := os.ReadFile(filePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to read file: %w", err)
 	}
 
 	if len(file) == 0 {
 		return nil
 	}
 
-	err = json.Unmarshal(file, t)
-	if err != nil {
-		return err
+	if err := json.Unmarshal(file, t); err != nil {
+		return fmt.Errorf("failed to unmarshal tasks: %w", err)
 	}
 
 	return nil
@@ -89,13 +103,20 @@ func (t *Todos) Load(filename string) error {
 func (t *Todos) Store(filename string) error {
 	data, err := json.Marshal(t)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal tasks: %w", err)
 	}
 
 	homeDir, err := os.UserHomeDir()
-	homeDir = homeDir + "/" + filename
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
 
-	return os.WriteFile(homeDir, data, 0644)
+	filePath := filepath.Join(homeDir, filename)
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return nil
 }
 
 func (t *Todos) Print() {
@@ -112,34 +133,38 @@ func (t *Todos) Print() {
 	}
 
 	var cells [][]*simpletable.Cell
-
 	for index, item := range *t {
-		index++
-
 		task := blue(item.Task)
 		done := "❌"
+		completedAt := "-"
+
 		if item.Done {
-			task = green(fmt.Sprintf("%s", item.Task))
+			task = green(item.Task)
 			done = green("✅")
+			completedAt = item.CompletedAt.Format(time.RFC822)
 		}
 
 		cells = append(cells, []*simpletable.Cell{
-			{Text: fmt.Sprintf("%d", index)},
+			{Text: fmt.Sprintf("%d", index+1)},
 			{Text: task},
 			{Text: done},
 			{Text: item.CreatedAt.Format(time.RFC822)},
-			{Text: item.CompletedAt.Format(time.RFC822)},
+			{Text: completedAt},
 		})
 	}
 
 	table.Body = &simpletable.Body{Cells: cells}
-
-	table.Footer = &simpletable.Footer{Cells: []*simpletable.Cell{
-		{Align: simpletable.AlignCenter, Span: 5, Text: red(fmt.Sprintf("you have %d  pending tasks", t.CountPending()))},
-	}}
+	table.Footer = &simpletable.Footer{
+		Cells: []*simpletable.Cell{
+			{
+				Align: simpletable.AlignCenter,
+				Span: 5,
+				Text: red(fmt.Sprintf("You have %d pending tasks", t.CountPending())),
+			},
+		},
+	}
 
 	table.SetStyle(simpletable.StyleUnicode)
-
 	table.Println()
 }
 
@@ -150,6 +175,10 @@ func (t *Todos) CountPending() int {
 			total++
 		}
 	}
-
 	return total
 }
+
+func (t *Todos) isValidIndex(index int) bool {
+	return index > 0 && index <= len(*t)
+}
+
