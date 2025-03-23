@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	taskFile = ".tasky.json"
+	taskFile    = ".tasky.json"
 	exitSuccess = 0
-	exitError = 1
+	exitError   = 1
 )
 
 var (
-	errEmptyTask = errors.New("your task is empty")
+	errEmptyTask    = errors.New("your task is empty")
 	errInvalidUsage = errors.New("invalid command usage")
 )
 
@@ -63,9 +63,9 @@ func run() error {
 	if completeTask == 0 {
 		completeTask = *complete
 	}
-	removeTask := *rmLong
+	removeTask := *removeLong
 	if removeTask == 0 {
-		removeTask = *rm
+		removeTask = *remove
 	}
 	listTasks := *listLong || *list
 	editTask := *editLong || *edit
@@ -189,4 +189,3 @@ func getInput(r io.Reader, args ...string) (string, error) {
 
 	return text, nil
 }
-
