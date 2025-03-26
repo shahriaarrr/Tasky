@@ -34,20 +34,22 @@ func main() {
 func run() error {
 	// Create a new FlagSet with ContinueOnError to allow manual error handling.
 	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	// Suppress automatic usage output.
+	// override the default behavior by manually checking help flags.
 	fs.SetOutput(new(bytes.Buffer))
 
 	// Define command-line flags using the custom flag set.
+	help := fs.Bool("h", false, "display help")
+	helpLong := fs.Bool("help", false, "display help (long flag)\n")
 	add := fs.Bool("a", false, "add new task")
-	addLong := fs.Bool("add", false, "add new task (long flag)")
+	addLong := fs.Bool("add", false, "add new task (long flag)\n")
 	complete := fs.Int("c", 0, "task completed")
-	completeLong := fs.Int("complete", 0, "task completed (long flag)")
+	completeLong := fs.Int("complete", 0, "task completed (long flag)\n")
 	remove := fs.Int("r", 0, "task removed successfully")
-	removeLong := fs.Int("remove", 0, "task removed successfully (long flag)")
+	removeLong := fs.Int("remove", 0, "task removed successfully (long flag)\n")
 	list := fs.Bool("l", false, "list all tasks")
-	listLong := fs.Bool("list", false, "list all tasks (long flag)")
+	listLong := fs.Bool("list", false, "list all tasks (long flag)\n")
 	edit := fs.Bool("e", false, "edit your task")
-	editLong := fs.Bool("edit", false, "edit your task (long flag)")
+	editLong := fs.Bool("edit", false, "edit your task (long flag)\n")
 
 	// Parse command-line arguments using the custom flag set.
 	err := fs.Parse(os.Args[1:])
@@ -55,6 +57,14 @@ func run() error {
 		// Print the custom error message to stderr.
 		fmt.Fprintln(os.Stderr, errInvalidUsage.Error())
 		return errInvalidUsage
+	}
+
+	// If the help flag is provided, print the usage message and exit.
+	if *help || *helpLong {
+		// Change output to stdout before printing the usage message.
+		fs.SetOutput(os.Stdout)
+		fs.Usage()
+		return nil
 	}
 
 	// Make the parsed flag set available for flag.Args() calls in other functions.
@@ -114,8 +124,7 @@ func handleAddTask(tasks *tasky.Todos) error {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
 
-	// Print confirmation message to stdout for testing
-	fmt.Printf("Task added: %s\n", task)
+	fmt.Printf("\nBoom! Task added: %s 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜! \n\n", task)
 
 	return nil
 }
@@ -128,6 +137,8 @@ func handleCompleteTask(tasks *tasky.Todos, index int) error {
 	if err := tasks.Store(taskFile); err != nil {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
+
+	fmt.Printf("\nBoom! Task %d got smashed like your weekend plans! 🤘💥✅\n\n", index)
 	return nil
 }
 
@@ -149,6 +160,8 @@ func handleEditTask(tasks *tasky.Todos) error {
 	if err := tasks.Store(taskFile); err != nil {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
+
+	fmt.Printf("\nLook at that! Task %d got a facelift – even your mom approves! 😎📝✨\n\n", index)
 	return nil
 }
 
@@ -160,6 +173,8 @@ func handleRemoveTask(tasks *tasky.Todos, index int) error {
 	if err := tasks.Store(taskFile); err != nil {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
+
+	fmt.Printf("\nAdios! Task %d vanished faster than your last paycheck! 😂🗑️🚀\n\n", index)
 	return nil
 }
 

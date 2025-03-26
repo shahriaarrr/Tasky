@@ -99,7 +99,7 @@ func TestAddTask(t *testing.T) {
 	})
 
 	// Verify that the output contains the added task
-	expected := "Task added: My first test task"
+	expected := "Boom! Task added: My first test task 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜!"
 	if !strings.Contains(output, expected) {
 		t.Errorf("expected output to contain %q, but got %q", expected, output)
 	}
