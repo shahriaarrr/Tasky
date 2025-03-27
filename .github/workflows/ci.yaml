@@ -1,0 +1,17 @@
+---
+name: ci
+on:
+  - push
+  - pull_request
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+      - name: Run tests in cli/tasky
+        run: make test/Tasky 

@@ -1,0 +1,15 @@
+---
+project_name: Tasky
+builds:
+  - main: ./cli/tasky/main.go
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+release:
+  github:
+    owner: shahriaarrr
+    name: Tasky
