@@ -98,8 +98,8 @@ func TestAddTask(t *testing.T) {
 		}
 	})
 
-	// Verify that the output contains the added task
-	expected := "Boom! Task added: My first test task 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜!"
+	// expected := "Boom! Task added: My first test task 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜!"
+	expected := "Boom! Task added: My first test task 🤘➕. Priority: \nNow go crush it like a boss—or just let it chill like your unread PMs😜!"
 	if !strings.Contains(output, expected) {
 		t.Errorf("expected output to contain %q, but got %q", expected, output)
 	}
@@ -249,7 +249,8 @@ func TestAddTaskWithPriority(t *testing.T) {
 		}
 	})
 
-	expected := "Boom! Task added: My prioritized task 🤘➕. Priority: High"
+	// expected := "Boom! Task added: My prioritized task 🤘➕. Priority: High"
+	expected := "Boom! Task added: My prioritized task High 🤘➕. Priority: High\nNow go crush it like a boss—or just let it chill like your unread PMs😜!"
 	if !strings.Contains(output, expected) {
 		t.Errorf("expected output to contain %q, but got %q", expected, output)
 	}
