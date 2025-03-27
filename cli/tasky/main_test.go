@@ -236,3 +236,47 @@ func TestGetInput(t *testing.T) {
 		t.Error("expected errEmptyTask when input is empty, but got nil")
 	}
 }
+
+func TestAddTaskWithPriority(t *testing.T) {
+	resetFlags()
+
+	os.Args = []string{"tasky", "-a", "My prioritized task", "-p", "High"}
+
+	output := captureOutput(func() {
+		err := run()
+		if err != nil {
+			t.Errorf("unexpected error adding task with priority: %v", err)
+		}
+	})
+
+	expected := "Boom! Task added: My prioritized task 🤘➕. Priority: High"
+	if !strings.Contains(output, expected) {
+		t.Errorf("expected output to contain %q, but got %q", expected, output)
+	}
+}
+
+func TestEditTaskWithPriority(t *testing.T) {
+	resetFlags()
+
+	tmpDir := t.TempDir()
+	oldWD, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer os.Chdir(oldWD)
+
+	os.Args = []string{"tasky", "-a", "Original task"}
+	_ = run()
+
+	resetFlags()
+
+	os.Args = []string{"tasky", "-e", "1", "Updated task", "-p", "Low"}
+	errOutput := captureErrorOutput(func() {
+		err := run()
+		if err != nil {
+			t.Errorf("unexpected error editing task with priority: %v", err)
+		}
+	})
+
+	if len(errOutput) > 0 {
+		t.Errorf("did not expect errors, but got: %s", errOutput)
+	}
+}

@@ -13,11 +13,21 @@ import (
 
 var (
 	errInvalidIndex = errors.New("invalid index")
-	errEmptyTask = errors.New("task cannot be empty")
+	errEmptyTask    = errors.New("task cannot be empty")
+	errInvalidPriority = errors.New("invalid priority. Use Low, Medium, or High")
+)
+
+type Priority string
+
+const (
+	PriorityLow    Priority = "Low"
+	PriorityMedium Priority = "Medium"
+	PriorityHigh   Priority = "High"
 )
 
 type item struct {
 	Task        string    `json:"task"`
+	Priority    Priority  `json:"priority"`
 	Done        bool      `json:"done"`
 	CreatedAt   time.Time `json:"created_at"`
 	CompletedAt time.Time `json:"completed_at,omitempty"`
@@ -25,13 +35,20 @@ type item struct {
 
 type Todos []item
 
-func (t *Todos) Add(task string) error {
+func (t *Todos) Add(task string, priority Priority) error {
 	if len(task) == 0 {
 		return errEmptyTask
 	}
 
+	switch priority {
+	case PriorityLow, PriorityMedium, PriorityHigh:
+	default:
+		priority = PriorityMedium
+	}
+
 	todo := item{
 		Task:        task,
+		Priority:    priority,
 		Done:        false,
 		CreatedAt:   time.Now(),
 		CompletedAt: time.Time{},
@@ -52,13 +69,20 @@ func (t *Todos) Complete(index int) error {
 	return nil
 }
 
-func (t *Todos) Edit(index int, newTask string) error {
+func (t *Todos) Edit(index int, newTask string, newPriority Priority) error {
 	if !t.isValidIndex(index) {
 		return errInvalidIndex
 	}
 
 	if len(newTask) == 0 {
 		return errEmptyTask
+	}
+
+	if newPriority != "" {
+		if newPriority != PriorityLow && newPriority != PriorityMedium && newPriority != PriorityHigh {
+			return errInvalidPriority
+		}
+		(*t)[index-1].Priority = newPriority
 	}
 
 	(*t)[index-1].Task = newTask
@@ -126,6 +150,7 @@ func (t *Todos) Print() {
 		Cells: []*simpletable.Cell{
 			{Align: simpletable.AlignCenter, Text: "#"},
 			{Align: simpletable.AlignCenter, Text: "Tasks"},
+			{Align: simpletable.AlignCenter, Text: "Priority"},
 			{Align: simpletable.AlignCenter, Text: "State"},
 			{Align: simpletable.AlignRight, Text: "Created At"},
 			{Align: simpletable.AlignRight, Text: "Completed At"},
@@ -137,6 +162,7 @@ func (t *Todos) Print() {
 		task := blue(item.Task)
 		done := "❌"
 		completedAt := "-"
+		priority := item.Priority
 
 		if item.Done {
 			task = green(item.Task)
@@ -144,9 +170,20 @@ func (t *Todos) Print() {
 			completedAt = item.CompletedAt.Format(time.RFC822)
 		}
 
+		priorityColor := blue
+		switch priority {
+		case PriorityLow:
+			priorityColor = blue
+		case PriorityMedium:
+			priorityColor = red
+		case PriorityHigh:
+			priorityColor = red
+		}
+
 		cells = append(cells, []*simpletable.Cell{
 			{Text: fmt.Sprintf("%d", index+1)},
 			{Text: task},
+			{Text: priorityColor(string(priority))},
 			{Text: done},
 			{Text: item.CreatedAt.Format(time.RFC822)},
 			{Text: completedAt},
@@ -158,7 +195,7 @@ func (t *Todos) Print() {
 		Cells: []*simpletable.Cell{
 			{
 				Align: simpletable.AlignCenter,
-				Span: 5,
+				Span: 6,
 				Text: red(fmt.Sprintf("You have %d pending tasks", t.CountPending())),
 			},
 		},
@@ -181,4 +218,3 @@ func (t *Todos) CountPending() int {
 func (t *Todos) isValidIndex(index int) bool {
 	return index > 0 && index <= len(*t)
 }
-

@@ -17,6 +17,7 @@
 - 📋 Simple and intuitive task management
 - 💾 Persistent local storage of tasks
 - 🌈 Color-coded task tracking
+- 🏆 Task Priority Support (Low/Medium/High)
 - 🖥️ Cross-platform compatibility
 - 🚦 Easy-to-use command-line interface
 - 🏗️ Minimal configuration required
@@ -27,17 +28,17 @@
   <p><strong>Task Management Made Easy</strong></p>
   
   ```bash
-  # Add a task
-  $ tasky -a "Prepare project presentation"
-  Boom! Task added: Prepare project presentation 🤘➕
+  # Add a task with priority
+  $ tasky -a "Prepare project presentation" -p High
+  Boom! Task added: Prepare project presentation 🤘➕. Priority: High
 
   # List tasks
   $ tasky -l
-  ┌───┬────────────────────────┬───────┬─────────────┬──────────────┐
-  │ # │ Tasks                  │ State │ Created At  │ Completed At │
-  ├───┼────────────────────────┼───────┼─────────────┼──────────────┤
-  │ 1 │ Prepare presentation   │  ❌   │ Mar 27 2025 │      -       │
-  └───┴────────────────────────┴───────┴─────────────┴──────────────┘
+  ┌───┬────────────────────────┬──────────┬───────┬─────────────┬──────────────┐
+  │ # │ Tasks                  │ Priority │ State │ Created At  │ Completed At │
+  ├───┼────────────────────────┼──────────┼───────┼─────────────┼──────────────┤
+  │ 1 │ Prepare presentation   │   High   │  ❌   │ Mar 27 2025 │      -       │
+  └───┴────────────────────────┴──────────┴───────┴─────────────┴──────────────┘
   ```
 </div>
 
@@ -75,11 +76,16 @@ go install ./cli/tasky
 
 | Command | Description |
 |---------|-------------|
-| `tasky -a "Task description"` | Add a new task |
+| `tasky -a "Task description" -p Priority` | Add a new task with priority |
+| `tasky -e 1 "New description" -p Priority` | Edit task with priority |
 | `tasky -l` | List all tasks |
 | `tasky -c 1` | Complete task #1 |
-| `tasky -e 1 "New description"` | Edit task #1 |
 | `tasky -r 1` | Remove task #1 |
+
+### Priority Levels
+- `-p Low`: Low priority tasks
+- `-p Medium`: Medium priority tasks (default)
+- `-p High`: High priority tasks
 
 ## 🔧 Advanced Configuration
 
@@ -92,9 +98,11 @@ Tasky works out of the box with sensible defaults:
 
 ## 🌟 Pro Tips
 
-- Use short flags for quick actions (`-a`, `-l`, `-c`)
-- Long flags also work (`--add`, `--list`, `--complete`)
+- Use short flags for quick actions (`-a`, `-l`, `-c`, `-p`)
+- Long flags also work (`--add`, `--list`, `--complete`, `--priority`)
 - Tasks are automatically saved after each operation
+- Priorities are color-coded in the task list
+- Tasks default to Medium priority if not specified
 
 ## 🤝 Contributing
 
