@@ -61,6 +61,9 @@ git clone https://github.com/shahriaarrr/Tasky.git
 # Navigate to project directory
 cd Tasky
 
+# get dependency packages
+go get
+
 # Build the project
 go build ./cli/tasky
 
