@@ -39,6 +39,18 @@
   ├───┼────────────────────────┼──────────┼───────┼─────────────┼──────────────┤
   │ 1 │ Prepare presentation   │   High   │  ❌   │ Mar 27 2025 │      -       │
   └───┴────────────────────────┴──────────┴───────┴─────────────┴──────────────┘
+=======
+  # Add a task
+  $ tasky -a "Prepare project presentation"
+  Boom! Task added: Prepare project presentation 🤘➕
+
+  # List tasks
+  $ tasky -l
+  ┌───┬────────────────────────┬───────┬─────────────┬──────────────┐
+  │ # │ Tasks                  │ State │ Created At  │ Completed At │
+  ├───┼────────────────────────┼───────┼─────────────┼──────────────┤
+  │ 1 │ Prepare presentation   │  ❌   │ Mar 27 2025 │      -       │
+  └───┴────────────────────────┴───────┴─────────────┴──────────────┘
   ```
 </div>
 
@@ -87,6 +99,12 @@ go install ./cli/tasky
 - `-p Medium`: Medium priority tasks (default)
 - `-p High`: High priority tasks
 
+| `tasky -a "Task description"` | Add a new task |
+| `tasky -l` | List all tasks |
+| `tasky -c 1` | Complete task #1 |
+| `tasky -e 1 "New description"` | Edit task #1 |
+| `tasky -r 1` | Remove task #1 |
+
 ## 🔧 Advanced Configuration
 
 Tasky works out of the box with sensible defaults:
@@ -103,6 +121,9 @@ Tasky works out of the box with sensible defaults:
 - Tasks are automatically saved after each operation
 - Priorities are color-coded in the task list
 - Tasks default to Medium priority if not specified
+- Use short flags for quick actions (`-a`, `-l`, `-c`)
+- Long flags also work (`--add`, `--list`, `--complete`)
+- Tasks are automatically saved after each operation
 
 ## 🤝 Contributing
 

@@ -26,3 +26,4 @@ go.work
 # builds
 *.tar.gz
 /linux-release
+.qodo
