@@ -12,7 +12,8 @@ builds:
       - arm64
 
 release:
+  mode: keep-existing
+  
   github:
     owner: shahriaarrr
     name: Tasky
-
