@@ -1,9 +1,10 @@
 ---
-name: build
+name: Build & Release with GoReleaser
+
 on:
-  push:
-    tags:
-      - 'V*'
+  release:
+    types: [published, prereleased]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,6 +13,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,8 +36,8 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser
           version: '~> v2'
+          distribution: goreleaser
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
