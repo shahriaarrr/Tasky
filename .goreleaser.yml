@@ -10,7 +10,11 @@ builds:
     goarch:
       - amd64
       - arm64
+
 release:
   github:
     owner: shahriaarrr
     name: Tasky
+
+git:
+  tag_prefix: "V"
