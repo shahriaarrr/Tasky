@@ -1,4 +1,5 @@
 ---
+version: 2
 project_name: Tasky
 builds:
   - main: ./cli/tasky/main.go
