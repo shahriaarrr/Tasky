@@ -3,7 +3,7 @@ name: Build & Release with GoReleaser
 
 on:
   release:
-    types: [published, prereleased]
+    types: [prereleased]
   workflow_dispatch:
 
 permissions:
