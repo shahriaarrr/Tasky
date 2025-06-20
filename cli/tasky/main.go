@@ -6,11 +6,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github/tasky"
 	"io"
 	"os"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/alexeyco/simpletable"
+
+	"github/tasky"
 )
 
 const (
@@ -106,7 +110,7 @@ func run() error {
 	case removeTask > 0:
 		return handleRemoveTask(tasks, removeTask)
 	case listTasks:
-		tasks.Print()
+		PrintTable(*tasks)
 		return nil
 	default:
 		return errInvalidUsage
@@ -124,7 +128,10 @@ func handleAddTask(tasks *tasky.Todos) error {
 		return fmt.Errorf("failed to store tasks: %w", err)
 	}
 
-	fmt.Printf("\nBoom! Task added: %s 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜! \n\n", task)
+	fmt.Printf(
+		"\nBoom! Task added: %s 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜! \n\n",
+		task,
+	)
 
 	return nil
 }
@@ -223,4 +230,53 @@ func getInput(r io.Reader, args ...string) (string, error) {
 	}
 
 	return text, nil
+}
+
+func PrintTable(tasks tasky.Todos) {
+	table := simpletable.New()
+
+	table.Header = &simpletable.Header{
+		Cells: []*simpletable.Cell{
+			{Align: simpletable.AlignCenter, Text: "#"},
+			{Align: simpletable.AlignCenter, Text: "Tasks"},
+			{Align: simpletable.AlignCenter, Text: "State"},
+			{Align: simpletable.AlignRight, Text: "Created At"},
+			{Align: simpletable.AlignRight, Text: "Completed At"},
+		},
+	}
+
+	var cells [][]*simpletable.Cell
+	for index, item := range tasks {
+		task := tasky.Blue(item.Task)
+		done := "❌"
+		completedAt := "-"
+
+		if item.Done {
+			task = tasky.Green(item.Task) // green(item.Task)
+			done = tasky.Green("✅")
+			completedAt = item.CompletedAt.Format(time.RFC822)
+		}
+
+		cells = append(cells, []*simpletable.Cell{
+			{Text: fmt.Sprintf("%d", index+1)},
+			{Text: task},
+			{Text: done},
+			{Text: item.CreatedAt.Format(time.RFC822)},
+			{Text: completedAt},
+		})
+	}
+
+	table.Body = &simpletable.Body{Cells: cells}
+	table.Footer = &simpletable.Footer{
+		Cells: []*simpletable.Cell{
+			{
+				Align: simpletable.AlignCenter,
+				Span:  5,
+				Text:  tasky.Red(fmt.Sprintf("You have %d pending tasks", tasks.CountPending())),
+			},
+		},
+	}
+
+	table.SetStyle(simpletable.StyleUnicode)
+	table.Println()
 }

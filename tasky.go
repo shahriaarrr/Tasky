@@ -7,13 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/alexeyco/simpletable"
 )
 
 var (
 	errInvalidIndex = errors.New("invalid index")
-	errEmptyTask = errors.New("task cannot be empty")
+	errEmptyTask    = errors.New("task cannot be empty")
 )
 
 type item struct {
@@ -119,55 +117,6 @@ func (t *Todos) Store(filename string) error {
 	return nil
 }
 
-func (t *Todos) Print() {
-	table := simpletable.New()
-
-	table.Header = &simpletable.Header{
-		Cells: []*simpletable.Cell{
-			{Align: simpletable.AlignCenter, Text: "#"},
-			{Align: simpletable.AlignCenter, Text: "Tasks"},
-			{Align: simpletable.AlignCenter, Text: "State"},
-			{Align: simpletable.AlignRight, Text: "Created At"},
-			{Align: simpletable.AlignRight, Text: "Completed At"},
-		},
-	}
-
-	var cells [][]*simpletable.Cell
-	for index, item := range *t {
-		task := blue(item.Task)
-		done := "❌"
-		completedAt := "-"
-
-		if item.Done {
-			task = green(item.Task)
-			done = green("✅")
-			completedAt = item.CompletedAt.Format(time.RFC822)
-		}
-
-		cells = append(cells, []*simpletable.Cell{
-			{Text: fmt.Sprintf("%d", index+1)},
-			{Text: task},
-			{Text: done},
-			{Text: item.CreatedAt.Format(time.RFC822)},
-			{Text: completedAt},
-		})
-	}
-
-	table.Body = &simpletable.Body{Cells: cells}
-	table.Footer = &simpletable.Footer{
-		Cells: []*simpletable.Cell{
-			{
-				Align: simpletable.AlignCenter,
-				Span: 5,
-				Text: red(fmt.Sprintf("You have %d pending tasks", t.CountPending())),
-			},
-		},
-	}
-
-	table.SetStyle(simpletable.StyleUnicode)
-	table.Println()
-}
-
 func (t *Todos) CountPending() int {
 	total := 0
 	for _, item := range *t {
@@ -181,4 +130,3 @@ func (t *Todos) CountPending() int {
 func (t *Todos) isValidIndex(index int) bool {
 	return index > 0 && index <= len(*t)
 }
-

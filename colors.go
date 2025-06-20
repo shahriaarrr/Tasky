@@ -13,15 +13,15 @@ const (
 	ColorGray  = "\x1b[90m"
 )
 
-func red(s string) string {
+func Red(s string) string {
 	return fmt.Sprintf("%s%s%s", ColorRed, s, ColorDefault)
 }
 
-func green(s string) string {
+func Green(s string) string {
 	return fmt.Sprintf("%s%s%s", ColorGreen, s, ColorDefault)
 }
 
-func blue(s string) string {
+func Blue(s string) string {
 	return fmt.Sprintf("%s%s%s", ColorBlue, s, ColorDefault)
 }
 
