@@ -19,8 +19,6 @@ jobs:
       matrix:
         goos: [linux, windows, darwin]
         goarch: [amd64]
-    outputs:
-      archive-path: build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,12 +52,17 @@ jobs:
             rm "${FILE}"
           fi
 
+      - name: List files before upload
+        run: ls -lh build
+
       - name: Upload build artifacts
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: build/*.{zip,tar.gz}
+          path: |
+            build/*.zip
+            build/*.tar.gz
 
   release:
     needs: build
