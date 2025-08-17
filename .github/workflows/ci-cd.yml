@@ -22,24 +22,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Debug matrix variables
+        run: echo "🔧 Building for GOOS=${{ matrix.goos }}, GOARCH=${{ matrix.goarch }}"
+
+      - name: Show project tree
+        run: |
+          echo "📂 Repository structure:"
+          ls -R
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
 
-      - name: Build binary for ${{ matrix.goos }}/${{ matrix.goarch }}
+      - name: Build binary
         run: |
+          set -euxo pipefail
           mkdir -p build
           BIN=tasky
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then
             EXT=".exe"
           fi
+          echo "🏗️ Running go build..."
           env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 \
-            go build -trimpath -ldflags="-s -w" -o build/${BIN}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT} ./cli/tasky
+            go build -x -trimpath -ldflags="-s -w" \
+            -o build/${BIN}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT} ./cli/tasky
+
+      - name: Verify build output
+        run: |
+          echo "✅ Built binaries:"
+          ls -lh build
 
       - name: Compress binary
         run: |
+          set -euxo pipefail
           cd build
           BIN=tasky
           FILE="${BIN}_${{ matrix.goos }}_${{ matrix.goarch }}"
@@ -51,9 +68,8 @@ jobs:
             tar czf "${FILE}.tar.gz" "${FILE}"
             rm "${FILE}"
           fi
-
-      - name: List files before upload
-        run: ls -lh build
+          echo "📦 Archive created:"
+          ls -lh
 
       - name: Upload build artifacts
         if: startsWith(github.ref, 'refs/tags/')
@@ -74,13 +90,18 @@ jobs:
         with:
           path: build
 
+      - name: List downloaded artifacts
+        run: |
+          echo "📂 Downloaded artifacts:"
+          ls -lhR build
+
       - name: Generate combined SHA256 checksum
         run: |
+          set -euxo pipefail
           cd build
-          sha256sum *.{zip,tar.gz} > SHA256SUMS
-
-      - name: List build directory
-        run: ls -lh build
+          sha256sum *.{zip,tar.gz} > SHA256SUMS || true
+          echo "🔑 SHA256SUMS generated:"
+          cat SHA256SUMS
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
