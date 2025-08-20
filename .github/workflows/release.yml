@@ -37,20 +37,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # استخراج نام تگ از پرام (مثلاً "v0.7.0")
+          # extract tag name from ref (e.g. "v0.7.0")
           tag=${GITHUB_REF#refs/tags/}
           echo "🔍 Finding release ID for tag=$tag"
-          # دریافت آی‌دی ریلیز بر اساس تگ
+          # get release id for the tag
           release_id=$(gh api repos/$GITHUB_REPOSITORY/releases/tags/$tag --jq .id)
           echo "Found release_id=$release_id"
 
-          # دریافت لیست همه Asset IDs مربوط به آن ریلیز
+          # fetch all asset IDs for that release
           asset_ids=$(gh api repos/$GITHUB_REPOSITORY/releases/$release_id/assets --jq '.[].id')
           if [ -z "$asset_ids" ]; then
             echo "No existing assets to delete."
           else
             echo "Deleting assets: $asset_ids"
-            # حذف تکی‌تکی همهٔ Assetها
+            # delete each asset one by one
             for asset_id in $asset_ids; do
               echo "→ Deleting asset_id=$asset_id"
               gh api repos/$GITHUB_REPOSITORY/releases/assets/$asset_id --method DELETE

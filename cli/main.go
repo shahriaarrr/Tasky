@@ -1,240 +1,470 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
-	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/alexeyco/simpletable"
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github/tasky"
 )
 
+const taskFile = ".tasky.json"
+
+type menuChoice int
+
+type menuItem struct {
+	title string
+	desc  string
+}
+
+func (i menuItem) Title() string       { return i.title }
+func (i menuItem) Description() string { return i.desc }
+func (i menuItem) FilterValue() string { return i.title }
+
 const (
-	taskFile    = ".tasky.json"
-	exitSuccess = 0
-	exitError   = 1
+	menuAdd menuChoice = iota
+	menuComplete
+	menuEdit
+	menuDelete
+	menuList
+	menuExit
 )
 
-var (
-	errEmptyTask    = errors.New("your task is empty")
-	errInvalidUsage = errors.New("invalid command usage")
+type state int
+
+const (
+	stateMenu state = iota
+	stateAdd
+	stateComplete
+	stateEdit
+	stateDelete
+	stateList
 )
+
+type model struct {
+	todos      *tasky.Todos
+	filename   string
+	state      state
+	menu       list.Model
+	textinput  textinput.Model
+	indexinput textinput.Model
+	err        error
+
+	editIndex int
+
+	listOutput string
+
+	completeItems  []completeItem
+	completeCursor int
+}
+
+type completeItem struct {
+	title    string
+	index    int
+	selected bool
+}
 
 func main() {
-	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(exitError)
+	items := []list.Item{
+		menuItem{"Add Task", "Add a new task"},
+		menuItem{"Complete Task", "Mark a task as done"},
+		menuItem{"Edit Task", "Edit an existing task"},
+		menuItem{"Remove Task", "Delete a task"},
+		menuItem{"List Tasks", "Show all tasks"},
+		menuItem{"Exit", "Quit the app"},
+	}
+
+	menuList := list.New(items, list.NewDefaultDelegate(), 40, 14)
+	menuList.Title = "Tasky Menu"
+
+	txtInput := textinput.New()
+	txtInput.Placeholder = "Enter task name"
+
+	idxInput := textinput.New()
+	idxInput.Placeholder = "Enter task index (e.g. 1)"
+
+	t := &tasky.Todos{}
+	if err := t.Load(taskFile); err != nil {
+
+		fmt.Fprintln(os.Stderr, "warning: failed to load tasks:", err)
+	}
+
+	taskModel := model{
+		todos:      t,
+		filename:   taskFile,
+		state:      stateMenu,
+		menu:       menuList,
+		textinput:  txtInput,
+		indexinput: idxInput,
+		err:        nil,
+		editIndex:  0,
+		listOutput: "",
+	}
+
+	if _, err := tea.NewProgram(taskModel, tea.WithMouseAllMotion()).Run(); err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
 	}
 }
 
-func run() error {
-	// Create a new FlagSet with ContinueOnError to allow manual error handling.
-	fs := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	// override the default behavior by manually checking help flags.
-	fs.SetOutput(new(bytes.Buffer))
+func (m model) Init() tea.Cmd { return nil }
 
-	// Define command-line flags using the custom flag set.
-	help := fs.Bool("h", false, "display help")
-	helpLong := fs.Bool("help", false, "display help (long flag)\n")
-	add := fs.Bool("a", false, "add new task")
-	addLong := fs.Bool("add", false, "add new task (long flag)\n")
-	complete := fs.Int("c", 0, "task completed")
-	completeLong := fs.Int("complete", 0, "task completed (long flag)\n")
-	remove := fs.Int("r", 0, "task removed successfully")
-	removeLong := fs.Int("remove", 0, "task removed successfully (long flag)\n")
-	list := fs.Bool("l", false, "list all tasks")
-	listLong := fs.Bool("list", false, "list all tasks (long flag)\n")
-	edit := fs.Bool("e", false, "edit your task")
-	editLong := fs.Bool("edit", false, "edit your task (long flag)\n")
-
-	// Parse command-line arguments using the custom flag set.
-	err := fs.Parse(os.Args[1:])
-	if err != nil {
-		// Print the custom error message to stderr.
-		fmt.Fprintln(os.Stderr, errInvalidUsage.Error())
-		return errInvalidUsage
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch m.state {
+	case stateMenu:
+		return m.updateMenu(msg)
+	case stateAdd:
+		return m.updateAdd(msg)
+	case stateComplete:
+		return m.updateComplete(msg)
+	case stateEdit:
+		return m.updateEdit(msg)
+	case stateDelete:
+		return m.updateDelete(msg)
+	case stateList:
+		return m.updateList(msg)
 	}
-
-	// If the help flag is provided, print the usage message and exit.
-	if *help || *helpLong {
-		// Change output to stdout before printing the usage message.
-		fs.SetOutput(os.Stdout)
-		fs.Usage()
-		return nil
-	}
-
-	// Make the parsed flag set available for flag.Args() calls in other functions.
-	flag.CommandLine = fs
-
-	// Display the welcome menu if no flags and positional arguments are provided.
-	if fs.NFlag() == 0 && fs.NArg() == 0 {
-		displayMenu()
-		return nil
-	}
-
-	tasks := &tasky.Todos{}
-
-	// Load tasks from the file.
-	if err := tasks.Load(taskFile); err != nil {
-		return fmt.Errorf("failed to load tasks: %w", err)
-	}
-
-	// Choose between short and long flags.
-	addTask := *addLong || *add
-	completeTask := *completeLong
-	if completeTask == 0 {
-		completeTask = *complete
-	}
-	removeTask := *removeLong
-	if removeTask == 0 {
-		removeTask = *remove
-	}
-	listTasks := *listLong || *list
-	editTask := *editLong || *edit
-
-	switch {
-	case addTask:
-		return handleAddTask(tasks)
-	case completeTask > 0:
-		return handleCompleteTask(tasks, completeTask)
-	case editTask:
-		return handleEditTask(tasks)
-	case removeTask > 0:
-		return handleRemoveTask(tasks, removeTask)
-	case listTasks:
-		PrintTable(*tasks)
-		return nil
-	default:
-		return errInvalidUsage
-	}
+	return m, nil
 }
 
-func handleAddTask(tasks *tasky.Todos) error {
-	task, err := getInput(os.Stdin, flag.Args()...)
-	if err != nil {
-		return fmt.Errorf("failed to get input: %w", err)
+func (m model) View() string {
+
+	errLine := ""
+	if m.err != nil {
+		errLine = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Render("Error: "+m.err.Error()) + "\n\n"
 	}
 
-	tasks.Add(task)
-	if err := tasks.Store(taskFile); err != nil {
-		return fmt.Errorf("failed to store tasks: %w", err)
+	switch m.state {
+	case stateMenu:
+		return errLine + lipgloss.NewStyle().Margin(1, 2).Render(m.menu.View())
+	case stateAdd:
+		return errLine + "Add Task (ENTER to save, ESC to cancel):\n\n" + m.textinput.View()
+	case stateComplete:
+		var b strings.Builder
+		header := "Select tasks to complete (Space/Enter to toggle). Use ↑/↓, j/k or mouse wheel.\n"
+		header += "We'll only return when you select 'main menu'.\n\n"
+		b.WriteString(header)
+
+		green := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+		dim := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+
+		for i, it := range m.completeItems {
+			cursor := " "
+			if m.completeCursor == i {
+				cursor = ">"
+			}
+			check := "[ ]"
+			line := it.title
+			if it.index > 0 && it.selected {
+				check = "[x]"
+				line = green.Render(line)
+			}
+			if it.index == 0 {
+				line = dim.Render(line)
+			}
+			b.WriteString(fmt.Sprintf("%s %s %s\n", cursor, check, line))
+		}
+		return errLine + b.String()
+	case stateEdit:
+
+		if m.editIndex == 0 {
+			return errLine + "Edit Task - enter number to edit (ENTER to confirm):\n\n" + m.indexinput.View()
+		}
+		return errLine + fmt.Sprintf("Edit Task #%d - enter new text (ENTER to save):\n\n", m.editIndex) + m.textinput.View()
+	case stateDelete:
+		return errLine + "Delete Task - enter number (ENTER to confirm, ESC to cancel):\n\n" + m.indexinput.View()
+	case stateList:
+		out := m.listOutput
+		if strings.TrimSpace(out) == "" {
+			out = "No tasks.\n"
+		}
+		out += "\n\nPress any key to return to menu."
+		return errLine + out
 	}
-
-	fmt.Printf(
-		"\nBoom! Task added: %s 🤘➕.\nNow go crush it like a boss—or just let it chill like your unread PMs😜! \n\n",
-		task,
-	)
-
-	return nil
+	return errLine + ""
 }
 
-func handleCompleteTask(tasks *tasky.Todos, index int) error {
-	if err := tasks.Complete(index); err != nil {
-		return fmt.Errorf("failed to complete task: %w", err)
-	}
+func (m model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
 
-	if err := tasks.Store(taskFile); err != nil {
-		return fmt.Errorf("failed to store tasks: %w", err)
-	}
+			m.err = nil
+			switch m.menu.Index() {
+			case int(menuAdd):
+				m.state = stateAdd
+				m.textinput.SetValue("")
+				m.textinput.Focus()
+				return m, nil
+			case int(menuComplete):
 
-	fmt.Printf("\nBoom! Task %d got smashed like your weekend plans! 🤘💥✅\n\n", index)
-	return nil
+				m = m.withBuiltCompleteItems()
+				m.completeCursor = 0
+				m.state = stateComplete
+				return m, nil
+			case int(menuEdit):
+				m.state = stateEdit
+				m.editIndex = 0
+				m.indexinput.SetValue("")
+				m.indexinput.Focus()
+				return m, nil
+			case int(menuDelete):
+				m.state = stateDelete
+				m.indexinput.SetValue("")
+				m.indexinput.Focus()
+				return m, nil
+			case int(menuList):
+
+				m.listOutput = buildTableString(*m.todos)
+				m.state = stateList
+				return m, nil
+			case int(menuExit):
+				return m, tea.Quit
+			}
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		}
+	}
+	var cmd tea.Cmd
+	m.menu, cmd = m.menu.Update(msg)
+	return m, cmd
 }
 
-func handleEditTask(tasks *tasky.Todos) error {
-	if len(flag.Args()) < 2 {
-		return fmt.Errorf("usage: -e <index> <new_task>")
+func (m model) updateAdd(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			m.err = nil
+			task := strings.TrimSpace(m.textinput.Value())
+			if task == "" {
+				m.err = fmt.Errorf("task cannot be empty")
+			} else {
+				if err := m.todos.Add(task); err != nil {
+					m.err = err
+				} else {
+					if err := m.todos.Store(m.filename); err != nil {
+						m.err = err
+					}
+				}
+			}
+			m.state = stateMenu
+			return m, nil
+		case "esc":
+			m.err = nil
+			m.state = stateMenu
+			return m, nil
+		}
 	}
-
-	index, err := strconv.Atoi(flag.Arg(0))
-	if err != nil {
-		return fmt.Errorf("invalid index: %w", err)
-	}
-
-	newTask := strings.Join(flag.Args()[1:], " ")
-	if err := tasks.Edit(index, newTask); err != nil {
-		return fmt.Errorf("failed to edit task: %w", err)
-	}
-
-	if err := tasks.Store(taskFile); err != nil {
-		return fmt.Errorf("failed to store tasks: %w", err)
-	}
-
-	fmt.Printf("\nLook at that! Task %d got a facelift – even your mom approves! 😎📝✨\n\n", index)
-	return nil
+	var cmd tea.Cmd
+	m.textinput, cmd = m.textinput.Update(msg)
+	return m, cmd
 }
 
-func handleRemoveTask(tasks *tasky.Todos, index int) error {
-	if err := tasks.Delete(index); err != nil {
-		return fmt.Errorf("failed to delete task: %w", err)
-	}
+func (m model) updateComplete(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	if err := tasks.Store(taskFile); err != nil {
-		return fmt.Errorf("failed to store tasks: %w", err)
-	}
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "up", "k":
+			if m.completeCursor > 0 {
+				m.completeCursor--
+			}
+			return m, nil
+		case "down", "j":
+			if m.completeCursor < len(m.completeItems)-1 {
+				m.completeCursor++
+			}
+			return m, nil
+		case "home":
+			m.completeCursor = 0
+			return m, nil
+		case "end":
+			if len(m.completeItems) > 0 {
+				m.completeCursor = len(m.completeItems) - 1
+			}
+			return m, nil
+		case "enter", " ":
+			if len(m.completeItems) == 0 {
+				return m, nil
+			}
+			cur := m.completeItems[m.completeCursor]
+			if cur.index == 0 {
+				m.applyCompletions()
+				return m, nil
+			}
+			m.completeItems[m.completeCursor].selected = !m.completeItems[m.completeCursor].selected
+			return m, nil
+		case "ctrl+c":
+			return m, tea.Quit
+		}
+	case tea.MouseMsg:
 
-	fmt.Printf("\nAdios! Task %d vanished faster than your last paycheck! 😂🗑️🚀\n\n", index)
-	return nil
+		switch msg.Type {
+		case tea.MouseWheelUp:
+			if m.completeCursor > 0 {
+				m.completeCursor--
+			}
+			return m, nil
+		case tea.MouseWheelDown:
+			if m.completeCursor < len(m.completeItems)-1 {
+				m.completeCursor++
+			}
+			return m, nil
+		case tea.MouseLeft:
+
+			if len(m.completeItems) == 0 {
+				return m, nil
+			}
+			cur := m.completeItems[m.completeCursor]
+			if cur.index == 0 {
+				m.applyCompletions()
+				return m, nil
+			}
+			m.completeItems[m.completeCursor].selected = !m.completeItems[m.completeCursor].selected
+			return m, nil
+		}
+	}
+	return m, nil
 }
 
-// displayMenu displays the welcome message and available commands
-func displayMenu() {
-	menu := `
-████████╗ █████╗ ███████╗██╗  ██╗██╗   ██╗
-╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝╚██╗ ██╔╝
-   ██║   ███████║███████╗█████╔╝  ╚████╔╝
-   ██║   ██╔══██║╚════██║██╔═██╗   ╚██╔╝
-   ██║   ██║  ██║███████║██║  ██╗   ██║
-   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝
+func (m model) updateEdit(msg tea.Msg) (tea.Model, tea.Cmd) {
 
-	Welcome to Tasky👋
-	Your personal command-line task manager🧑‍💼
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			m.err = nil
 
-	Tasky helps you efficiently manage your to-do list directly from the terminal.
-	Whether you're tracking daily tasks, marking items as complete, or editing existing tasks,
-	Tasky provides a simple yet powerful interface to keep your tasks organized.
+			if m.editIndex == 0 {
+				idx, err := strconv.Atoi(strings.TrimSpace(m.indexinput.Value()))
+				if err != nil || idx <= 0 || idx > len(*m.todos) {
+					m.err = fmt.Errorf("invalid index")
+					m.state = stateMenu
+					return m, nil
+				}
+				m.editIndex = idx
 
-	You can see Available commands with -h command.
+				m.textinput.SetValue((*m.todos)[idx-1].Task)
+				m.textinput.Focus()
+				return m, nil
+			}
 
-	Stay on top of your tasks with Tasky!
+			newText := strings.TrimSpace(m.textinput.Value())
+			if newText == "" {
+				m.err = fmt.Errorf("task cannot be empty")
+			} else {
+				if err := m.todos.Edit(m.editIndex, newText); err != nil {
+					m.err = err
+				} else {
+					if err := m.todos.Store(m.filename); err != nil {
+						m.err = err
+					}
+				}
+			}
 
-	for more details: https://github.com/shahriaarrr/Tasky
+			m.editIndex = 0
+			m.state = stateMenu
+			return m, nil
+		case "esc":
+			m.err = nil
+			m.editIndex = 0
+			m.state = stateMenu
+			return m, nil
+		}
+	}
+	var cmd tea.Cmd
 
-	© Developed with ❤️  and ☕ By Shahriar Ghasempour.
-`
-	fmt.Println(menu)
+	if m.editIndex == 0 {
+		m.indexinput, cmd = m.indexinput.Update(msg)
+	} else {
+		m.textinput, cmd = m.textinput.Update(msg)
+	}
+	return m, cmd
 }
 
-func getInput(r io.Reader, args ...string) (string, error) {
-	if len(args) > 0 {
-		return strings.Join(args, " "), nil
+func (m model) updateDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "enter":
+			m.err = nil
+			idx, err := strconv.Atoi(strings.TrimSpace(m.indexinput.Value()))
+			if err != nil {
+				m.err = fmt.Errorf("invalid index")
+			} else {
+				if err2 := m.todos.Delete(idx); err2 != nil {
+					m.err = err2
+				} else {
+					if err3 := m.todos.Store(m.filename); err3 != nil {
+						m.err = err3
+					}
+				}
+			}
+			m.state = stateMenu
+			return m, nil
+		case "esc":
+			m.err = nil
+			m.state = stateMenu
+			return m, nil
+		}
 	}
-
-	scanner := bufio.NewScanner(r)
-	scanner.Scan()
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	text := scanner.Text()
-	if len(text) == 0 {
-		return "", errEmptyTask
-	}
-
-	return text, nil
+	var cmd tea.Cmd
+	m.indexinput, cmd = m.indexinput.Update(msg)
+	return m, cmd
 }
 
-func PrintTable(tasks tasky.Todos) {
+func (m model) updateList(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	if _, ok := msg.(tea.KeyMsg); ok {
+		m.state = stateMenu
+	}
+	return m, nil
+}
+
+func (m model) withBuiltCompleteItems() model {
+	items := make([]completeItem, 0, len(*m.todos)+1)
+	for i, it := range *m.todos {
+		if !it.Done {
+			items = append(items, completeItem{
+				title:    fmt.Sprintf("%d. %s", i+1, it.Task),
+				index:    i + 1,
+				selected: false,
+			})
+		}
+	}
+
+	items = append(items, completeItem{title: "main menu", index: 0})
+	m.completeItems = items
+	return m
+}
+
+func (m *model) applyCompletions() {
+	m.err = nil
+	for _, it := range m.completeItems {
+		if it.index > 0 && it.selected {
+			if err := m.todos.Complete(it.index); err != nil {
+				m.err = err
+			}
+		}
+	}
+	if err := m.todos.Store(m.filename); err != nil {
+		m.err = err
+	}
+	m.state = stateMenu
+}
+
+func buildTableString(tasks tasky.Todos) string {
 	table := simpletable.New()
-
 	table.Header = &simpletable.Header{
 		Cells: []*simpletable.Cell{
 			{Align: simpletable.AlignCenter, Text: "#"},
@@ -246,22 +476,19 @@ func PrintTable(tasks tasky.Todos) {
 	}
 
 	var cells [][]*simpletable.Cell
-	for index, item := range tasks {
-		task := tasky.Blue(item.Task)
+	for i, it := range tasks {
 		done := "❌"
 		completedAt := "-"
-
-		if item.Done {
-			task = tasky.Green(item.Task) // green(item.Task)
-			done = tasky.Green("✅")
-			completedAt = item.CompletedAt.Format(time.RFC822)
+		taskText := it.Task
+		if it.Done {
+			done = "✅"
+			completedAt = it.CompletedAt.Format(time.RFC822)
 		}
-
 		cells = append(cells, []*simpletable.Cell{
-			{Text: fmt.Sprintf("%d", index+1)},
-			{Text: task},
+			{Text: fmt.Sprintf("%d", i+1)},
+			{Text: taskText},
 			{Text: done},
-			{Text: item.CreatedAt.Format(time.RFC822)},
+			{Text: it.CreatedAt.Format(time.RFC822)},
 			{Text: completedAt},
 		})
 	}
@@ -272,11 +499,11 @@ func PrintTable(tasks tasky.Todos) {
 			{
 				Align: simpletable.AlignCenter,
 				Span:  5,
-				Text:  tasky.Red(fmt.Sprintf("You have %d pending tasks", tasks.CountPending())),
+				Text:  fmt.Sprintf("You have %d pending tasks", tasks.CountPending()),
 			},
 		},
 	}
-
 	table.SetStyle(simpletable.StyleUnicode)
-	table.Println()
+
+	return table.String()
 }
