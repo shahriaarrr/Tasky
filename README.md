@@ -1,3 +1,7 @@
+> [!WARNING] 
+> Development is currently happening on the `feature/bubbletea` branch, not on `main`.  
+> If you wish to contribute, please make your changes on the `feature/bubbletea` branch and open your Pull Requests against it.
+
 <div align="center">
 
 # 🚀 Tasky
